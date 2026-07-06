@@ -1,0 +1,50 @@
+# ChuckleShare 3.0 — The "Warlord" Release
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+A native Android application designed to download videos from platforms like Instagram and share the actual media files directly instead of spamming plain web links in group chats. Highly optimized for target viewers on iOS (e.g. Discord, Telegram) using native video transcoding and remuxing.
+
+![ChuckleShare 3.0 Comparison Ad](git-assets/ad.jpg)
+
+## ⚔️ Key Features
+
+- **Direct File Sharing:** Extracts and downloads actual video files (`.mp4`) instead of sending URLs.
+- **Session Authentication (Cookies):** Paste browser cookies directly into the application settings dialog to bypass rate limits or login-required barriers on platforms like Instagram. Features automatic space-to-tab repair for clipboard paste corruption.
+- **Nightly Engine Updates:** Check and download `yt-dlp` updates directly from the in-app settings (supports daily **Nightly** channel releases to immediately patch layout changes).
+- **iOS Compatibility Transcoder:** Passes every video through a native, sandboxed FFmpeg container optimization pass (H.264/AAC at 8-bit, faststart enabled) so videos play inline instantly on Apple devices.
+- **Warlord UI Theme:** Custom Jetpack Compose micro-animations featuring a laughing, thumbs-up, or frowning Mongol Khan representing the app states.
+
+---
+
+## 🛠️ How to Build
+
+### Prerequisites
+- JDK 17
+- Android SDK (Target SDK 34+)
+
+### Build Steps
+1. Clone this repository to your local machine.
+2. Initialize Gradle and build the release package:
+   ```bash
+   ./gradlew assembleRelease
+   ```
+3. The unsigned release APK will be generated at:
+   `app/build/outputs/apk/release/app-release-unsigned.apk`
+4. Sign the APK using `apksigner` with your keystore:
+   ```bash
+   apksigner sign --ks <your-keystore> --out ChuckleShare.apk app/build/outputs/apk/release/app-release-unsigned.apk
+   ```
+
+---
+
+## ⚖️ Legal & Licensing
+
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. 
+
+Publishing this project as open-source under GPL-3.0 guarantees full legal compliance with all of its compiled dependencies and wrappers:
+- **[youtubedl-android](https://github.com/yausername/youtubedl-android)**: The JNI wrapper library used by this application is licensed under **GPL-3.0**.
+- **[FFmpeg](https://ffmpeg.org/)**: Bundled via the JNI wrapper and compiled with video encoding capabilities (`--enable-gpl`), making the binary distribution subject to **GPL-2.0+** (which is fully compatible with GPL-3.0).
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**: The core video extractor script is released under the **Unlicense** (Public Domain), allowing free reuse and bundling.
+- **[Python](https://www.python.org/)**: The runtime bundled inside the package is licensed under the **PSF License** (GPL-compatible).
+
+By utilizing a GPL-3.0 license and distributing the complete source code, this app fully satisfies all copyleft conditions of its upstream components.
