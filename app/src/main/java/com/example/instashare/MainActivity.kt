@@ -121,7 +121,7 @@ class DownloadViewModel : ViewModel() {
             state = DownloadState.Initializing
             val resultFile = withContext(Dispatchers.IO) {
                 try {
-                    // Try to initialize and update to the latest yt-dlp to fix extractor bugs (e.g. Instagram empty response)
+                    // Try to initialize and update to the latest yt-dlp to fix extractor bugs (e.g. site-specific empty response)
                     try {
                         YoutubeDL.getInstance().init(context.applicationContext)
                         Log.d("DownloadViewModel", "Checking for yt-dlp updates...")
@@ -565,7 +565,7 @@ fun MainScreen(
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = if (receivedUrl == null) {
-                                    "Share or send a video link from Instagram, TikTok, or YouTube directly to ChuckleShare."
+                                    "Share or send a video link from supported platforms directly to ChuckleShare."
                                 } else {
                                     "Checking download cache and establishing connection..."
                                 },
@@ -835,7 +835,7 @@ fun CookieSettingsDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Paste your Netscape format cookies below to download from restricted platforms like Instagram.",
+                    text = "Paste your Netscape format cookies below to download from restricted platforms.",
                     color = Color(0xFF9CA3AF),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
@@ -858,7 +858,7 @@ fun CookieSettingsDialog(
                     ),
                     placeholder = {
                         Text(
-                            text = "# Netscape HTTP Cookie File\n.instagram.com\tTRUE\t/\tTRUE\t...",
+                            text = "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t...",
                             color = Color(0xFF4B5563),
                             fontSize = 12.sp
                         )

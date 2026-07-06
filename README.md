@@ -2,14 +2,14 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-A native Android application designed to download videos from platforms like Instagram and share the actual media files directly instead of spamming plain web links in group chats. Highly optimized for target viewers on iOS (e.g. Discord, Telegram) using native video transcoding and remuxing.
+A native Android application designed to download videos from popular web platforms and share the actual media files directly instead of spamming plain web links in group chats. Highly optimized for target viewers on iOS (e.g. Discord, Telegram) using native video transcoding and remuxing.
 
 ![ChuckleShare 3.0 Comparison Ad](git-assets/ad.jpg)
 
 ## ⚔️ Key Features
 
 - **Direct File Sharing:** Extracts and downloads actual video files (`.mp4`) instead of sending URLs.
-- **Session Authentication (Cookies):** Paste browser cookies directly into the application settings dialog to bypass rate limits or login-required barriers on platforms like Instagram. Features automatic space-to-tab repair for clipboard paste corruption.
+- **Session Authentication (Cookies):** Paste browser cookies directly into the application settings dialog to bypass rate limits or login-required barriers on supported media hosts. Features automatic space-to-tab repair for clipboard paste corruption.
 - **Nightly Engine Updates:** Check and download `yt-dlp` updates directly from the in-app settings (supports daily **Nightly** channel releases to immediately patch layout changes).
 - **iOS Compatibility Transcoder:** Passes every video through a native, sandboxed FFmpeg container optimization pass (H.264/AAC at 8-bit, faststart enabled) so videos play inline instantly on Apple devices.
 - **Warlord UI Theme:** Custom Jetpack Compose micro-animations featuring a laughing, thumbs-up, or frowning Mongol Khan representing the app states.
@@ -48,3 +48,16 @@ Publishing this project as open-source under GPL-3.0 guarantees full legal compl
 - **[Python](https://www.python.org/)**: The runtime bundled inside the package is licensed under the **PSF License** (GPL-compatible).
 
 By utilizing a GPL-3.0 license and distributing the complete source code, this app fully satisfies all copyleft conditions of its upstream components.
+
+---
+
+## ⚠️ Disclaimer
+
+This software is provided solely for educational and personal backup purposes. The developer does not condone, encourage, or facilitate piracy, copyright infringement, or the unauthorized download of media. 
+
+By using this software, you agree to:
+- Comply with all local copyright laws.
+- Respect the intellectual property rights of content creators and copyright holders.
+- Adhere to the Terms of Service (TOS) of any third-party websites or platforms from which you access or retrieve media.
+
+The user is solely responsible for how they utilize this application and for any copyright violations or terms of service infractions resulting from its misuse.
