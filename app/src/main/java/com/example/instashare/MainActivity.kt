@@ -6,7 +6,10 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,7 +32,6 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yausername.youtubedl_android.YoutubeDL
-import com.yausername.youtubedl_android.YoutubeDL.UpdateChannel
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -121,16 +123,14 @@ class DownloadViewModel : ViewModel() {
             state = DownloadState.Initializing
             val resultFile = withContext(Dispatchers.IO) {
                 try {
-                    // Try to initialize and update to the latest yt-dlp to fix extractor bugs (e.g. site-specific empty response)
-                    try {
-                        YoutubeDL.getInstance().init(context.applicationContext)
-                        Log.d("DownloadViewModel", "Checking for yt-dlp updates...")
-                        YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, UpdateChannel.NIGHTLY)
-                        Log.d("DownloadViewModel", "yt-dlp update check complete")
-                    } catch (e: Exception) {
-                        Log.e("DownloadViewModel", "Failed to update/init yt-dlp", e)
-                    }
-                    
+                    // Both engines must be extracted before we can do anything.
+                    // ensureReady is idempotent and cheap after the first call.
+                    Engine.ensureReady(context)
+                    // Throttled update check (at most once per few hours) so
+                    // extractor fixes land without re-downloading the engine
+                    // before every single video. Never throws.
+                    Engine.updateIfStale(context)
+
                     val downloadsDir = File(cacheDir, "downloads")
                     if (downloadsDir.exists()) {
                         downloadsDir.listFiles()?.forEach { it.delete() }
@@ -142,9 +142,14 @@ class DownloadViewModel : ViewModel() {
                     val request = YoutubeDLRequest(url)
                     request.addOption("-o", "${downloadsDir.absolutePath}/$downloadId.%(ext)s")
                     request.addOption("-f", "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1]/bestvideo+bestaudio/best")
-                    request.addOption("--recode-video", "mp4")
+                    // Remux (stream copy) into mp4 instead of --recode-video,
+                    // which forced a full software re-encode of any non-mp4
+                    // source even when the codecs were already compatible.
+                    // Incompatible codecs are handled by processVideoFile.
+                    request.addOption("--remux-video", "mp4")
                     request.addOption("--postprocessor-args", "ffmpeg:-movflags +faststart")
-                    request.addOption("--postprocessor-args", "VideoConvertor:-pix_fmt yuv420p")
+                    request.addOption("--no-playlist")
+                    request.addOption("--concurrent-fragments", "4")
                     
                     val cookiesFile = getCookiesFile(context)
                     if (cookiesFile.exists() && cookiesFile.length() > 0) {
@@ -203,10 +208,17 @@ class DownloadViewModel : ViewModel() {
 
         // Determine if the file is already H.264 and AAC
         val isCompatible = checkCompatibleCodecs(finalFile)
-        
+
+        // yt-dlp's remux/merge step already applies +faststart via
+        // --postprocessor-args, so most downloads need no work at all here.
+        if (isCompatible && hasFastStart(finalFile)) {
+            Log.d("FFmpegProcess", "File already H.264/AAC with faststart, skipping processing")
+            return
+        }
+
         val tempFile = File(downloadsDir, "${downloadId}_processed.mp4")
         val ffmpegBinary = findFFmpegBinary(context) ?: throw Exception("FFmpeg engine not found on device.")
-        
+
         val ffmpegArgs = if (isCompatible) {
             // Fast remux to apply faststart (stream copy only video and audio)
             arrayOf(
@@ -221,7 +233,9 @@ class DownloadViewModel : ViewModel() {
                 tempFile.absolutePath
             )
         } else {
-            // Full transcode to H.264, AAC, YUV420p, faststart
+            // Full transcode to H.264, AAC, YUV420p, faststart.
+            // veryfast trades a slightly larger file for a 3-5x faster encode
+            // than the default medium preset — the right trade on a phone CPU.
             arrayOf(
                 ffmpegBinary.absolutePath,
                 "-y",
@@ -229,7 +243,10 @@ class DownloadViewModel : ViewModel() {
                 "-map", "0:v?",
                 "-map", "0:a?",
                 "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "23",
                 "-c:a", "aac",
+                "-b:a", "128k",
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
                 tempFile.absolutePath
@@ -325,6 +342,46 @@ class DownloadViewModel : ViewModel() {
         }
     }
 
+    /**
+     * True if the mp4's 'moov' box precedes 'mdat' (i.e. +faststart already
+     * applied), by walking the top-level box headers. Returns false on any
+     * parse doubt so the caller falls back to remuxing.
+     */
+    private fun hasFastStart(file: File): Boolean {
+        try {
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                val length = raf.length()
+                var offset = 0L
+                val header = ByteArray(8)
+                while (offset + 8 <= length) {
+                    raf.seek(offset)
+                    raf.readFully(header)
+                    var boxSize = ((header[0].toLong() and 0xFF) shl 24) or
+                        ((header[1].toLong() and 0xFF) shl 16) or
+                        ((header[2].toLong() and 0xFF) shl 8) or
+                        (header[3].toLong() and 0xFF)
+                    val boxType = String(header, 4, 4, Charsets.US_ASCII)
+                    when (boxType) {
+                        "moov" -> return true
+                        "mdat" -> return false
+                    }
+                    if (boxSize == 1L) {
+                        // 64-bit largesize follows the header
+                        boxSize = raf.readLong()
+                    } else if (boxSize == 0L) {
+                        // Box extends to end of file
+                        return false
+                    }
+                    if (boxSize < 8) return false
+                    offset += boxSize
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MediaCheck", "Error scanning mp4 boxes", e)
+        }
+        return false
+    }
+
     private fun findLibraryDirs(context: android.content.Context): List<File> {
         val libDirs = mutableListOf<File>()
         libDirs.add(File(context.applicationInfo.nativeLibraryDir))
@@ -379,11 +436,18 @@ class DownloadViewModel : ViewModel() {
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel = DownloadViewModel()
+    private val viewModel: DownloadViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+        // targetSdk 35 enforces edge-to-edge on Android 15+; declare it
+        // explicitly with dark system bars so behavior matches on older OSes.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
+
+
         var receivedUrl: String? = null
         if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
@@ -491,6 +555,7 @@ fun MainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
@@ -756,9 +821,15 @@ fun MainScreen(
                 }
             }
 
-            // Footer / Status
+            // Footer / Status — shows the live engine version so it's obvious
+            // whether the nightly auto-update is actually landing.
+            val engineVersion = Engine.ytdlpVersion
             Text(
-                text = "Powered by yt-dlp & FFmpeg",
+                text = if (engineVersion != null) {
+                    "Powered by yt-dlp $engineVersion & FFmpeg"
+                } else {
+                    "Powered by yt-dlp & FFmpeg"
+                },
                 color = Color(0xFF4B5563),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
@@ -771,6 +842,7 @@ fun MainScreen(
             onClick = { showCookieDialog = true },
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                .safeDrawingPadding()
                 .padding(top = 28.dp, end = 20.dp)
                 .size(48.dp)
                 .background(Color(0x0DFFFFFF), CircleShape)
@@ -876,9 +948,16 @@ fun CookieSettingsDialog(
                         isUpdating = true
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
-                                YoutubeDL.getInstance().updateYoutubeDL(context.applicationContext, UpdateChannel.NIGHTLY)
+                                Engine.ensureReady(context)
+                                val status = Engine.updateNow(context)
+                                val message = when (status) {
+                                    YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE ->
+                                        "Engine already up to date (yt-dlp ${Engine.ytdlpVersion ?: "unknown"})"
+                                    else ->
+                                        "Engine updated to yt-dlp ${Engine.ytdlpVersion ?: "unknown"}"
+                                }
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, "Downloader engine updated successfully!", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {
                                 Log.e("CookieSettingsDialog", "Engine update failed", e)

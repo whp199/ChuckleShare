@@ -10,8 +10,8 @@ A native Android application designed to download videos from popular web platfo
 
 - **Direct File Sharing:** Extracts and downloads actual video files (`.mp4`) instead of sending URLs.
 - **Session Authentication (Cookies):** Paste browser cookies directly into the application settings dialog to bypass rate limits or login-required barriers on supported media hosts. Features automatic space-to-tab repair for clipboard paste corruption.
-- **Nightly Engine Updates:** Check and download `yt-dlp` updates directly from the in-app settings (supports daily **Nightly** channel releases to immediately patch layout changes).
-- **iOS Compatibility Transcoder:** Passes every video through a native, sandboxed FFmpeg container optimization pass (H.264/AAC at 8-bit, faststart enabled) so videos play inline instantly on Apple devices.
+- **Nightly Engine Updates:** `yt-dlp` auto-updates from the daily **Nightly** channel (checked at most once every 6 hours, so downloads start instantly in between). The current engine version is shown in the app footer, and a manual update button lives in the settings dialog.
+- **iOS Compatibility Transcoder:** Videos are checked for H.264/AAC + faststart compliance; already-compatible files are shared as-is with zero re-processing, container-only issues get a fast stream-copy remux, and only genuinely incompatible codecs trigger a full (veryfast-preset) transcode.
 - **Warlord UI Theme:** Custom Jetpack Compose micro-animations featuring a laughing, thumbs-up, or frowning Mongol Khan representing the app states.
 
 ---
@@ -19,8 +19,8 @@ A native Android application designed to download videos from popular web platfo
 ## 🛠️ How to Build
 
 ### Prerequisites
-- JDK 17
-- Android SDK (Target SDK 34+)
+- JDK 17 (a copy is bundled in `jdk-17.0.2/`; `gradle.properties` points `org.gradle.java.home` at it — adjust the path for your machine)
+- Android SDK (compile/target SDK 35)
 
 ### Build Steps
 1. Clone this repository to your local machine.
