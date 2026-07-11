@@ -821,20 +821,34 @@ fun MainScreen(
                 }
             }
 
-            // Footer / Status — shows the live engine version so it's obvious
-            // whether the nightly auto-update is actually landing.
+            // Footer / Status — app version plus the live engine version so
+            // it's obvious which build is installed and whether the nightly
+            // auto-update is actually landing.
             val engineVersion = Engine.ytdlpVersion
-            Text(
-                text = if (engineVersion != null) {
-                    "Powered by yt-dlp $engineVersion & FFmpeg"
-                } else {
-                    "Powered by yt-dlp & FFmpeg"
-                },
-                color = Color(0xFF4B5563),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(bottom = 24.dp)
-            )
+            ) {
+                Text(
+                    text = "ChuckleShare v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                    color = Color(0xFF6B7280),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (engineVersion != null) {
+                        "yt-dlp $engineVersion & FFmpeg"
+                    } else {
+                        "yt-dlp & FFmpeg"
+                    },
+                    color = Color(0xFF4B5563),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         // Top right Cookie Settings Button
