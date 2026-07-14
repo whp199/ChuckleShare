@@ -12,7 +12,7 @@ android {
         applicationId = "com.example.instashare"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
+        versionCode = 3
         versionName = "3.1"
 
         vectorDrawables {
@@ -20,7 +20,10 @@ android {
         }
 
         ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+            // Only 64-bit ARM is shipped: every real target device uses it, and
+            // dropping the other ABIs (incl. x86 emulator libs) roughly quarters
+            // the APK size. Add ABIs back here if you ever need emulator builds.
+            abiFilters.add("arm64-v8a")
         }
     }
 
